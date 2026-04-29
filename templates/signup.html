@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Sign Up - Campus Events</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow">
+        <div class="container">
+            <a class="navbar-brand" href="/">🎓 Purdue Campus Events</a>
+            <div class="d-flex">
+                <a href="/login" class="btn btn-outline-light btn-sm me-2">Login</a>
+                <a href="/" class="btn btn-outline-secondary btn-sm">Dashboard</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container pb-5">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+
+                {% with messages = get_flashed_messages() %}
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-danger">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <div class="card shadow-sm border-primary">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="mb-0">Create an Account</h4>
+                    </div>
+                    <div class="card-body p-4">
+                        <form action="/signup" method="POST">
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Full Name</label>
+                                <input type="text" name="name" class="form-control" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Purdue Email</label>
+                                <input type="email" name="email" class="form-control" required>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Password</label>
+                                <input type="password" name="password" class="form-control" required>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">I am a...</label>
+                                <select name="role" id="roleSelect" class="form-select" required>
+                                    <option value="" disabled selected>Select your role...</option>
+                                    <option value="student">Student (Attendee)</option>
+                                    <option value="club_admin">Club / Organization Admin (Host)</option>
+                                </select>
+                            </div>
+
+                            <!-- This section is hidden by default. JS reveals it if they pick 'club_admin' -->
+                            <div id="clubSelectionDiv" style="display: none;" class="p-3 bg-light border rounded mb-4">
+                                <label class="form-label fw-bold text-primary">Select Your Club</label>
+                                <select name="club_id" id="clubSelect" class="form-select mb-3">
+                                    <option value="" disabled selected>Choose a club...</option>
+                                    {% for club in clubs %}
+                                        <option value="{{ club.id }}">{{ club.name }}</option>
+                                    {% endfor %}
+                                    <option value="new" class="fw-bold text-success">➕ Other (Create New Club)</option>
+                                </select>
+
+                                <!-- This section is hidden by default. JS reveals it if they pick 'Other' -->
+                                <div id="newClubDiv" style="display: none;">
+                                    <label class="form-label fw-bold text-success small">New Club Name</label>
+                                    <input type="text" name="new_club_name" id="newClubName" class="form-control form-control-sm mb-2" placeholder="e.g. Purdue Space Program">
+
+                                    <label class="form-label fw-bold text-success small">Club Description</label>
+                                    <input type="text" name="new_club_description" id="newClubDesc" class="form-control form-control-sm" placeholder="What does your club do?">
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary w-100 fw-bold">Sign Up</button>
+                        </form>
+                    </div>
+                </div>
+                <div class="text-center mt-3">
+                    <p class="text-muted small">Already have an account? <a href="/login">Log in here</a>.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript to toggle the input fields dynamically -->
+    <script>
+        document.getElementById('roleSelect').addEventListener('change', function() {
+            var clubSelectionDiv = document.getElementById('clubSelectionDiv');
+            var clubSelect = document.getElementById('clubSelect');
+
+            if (this.value === 'club_admin') {
+                clubSelectionDiv.style.display = 'block';
+                clubSelect.required = true;
+            } else {
+                clubSelectionDiv.style.display = 'none';
+                clubSelect.required = false;
+                clubSelect.value = ''; // Reset dropdown
+                document.getElementById('newClubDiv').style.display = 'none'; // Hide new club fields
+            }
+        });
+
+        document.getElementById('clubSelect').addEventListener('change', function() {
+            var newClubDiv = document.getElementById('newClubDiv');
+            var newClubName = document.getElementById('newClubName');
+
+            if (this.value === 'new') {
+                newClubDiv.style.display = 'block';
+                newClubName.required = true; // Make it required if they choose to create one
+            } else {
+                newClubDiv.style.display = 'none';
+                newClubName.required = false;
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Reports - Campus Events</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 shadow">
+        <div class="container">
+            <a class="navbar-brand" href="/">🎓 Purdue Campus Events</a>
+            <div class="d-flex">
+                <a href="/" class="btn btn-outline-light btn-sm">⬅ Back to Dashboard</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container pb-5">
+
+        {% if current_user.role == 'student' %}
+            <h2 class="mb-4">My RSVP History</h2>
+
+            <div class="card shadow-sm mb-4 border-primary">
+                <div class="card-body">
+                    <form action="/report" method="POST" class="row g-3 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">From Date:</label>
+                            <input type="date" name="start_date" class="form-control" value="{{ request.form.get('start_date', '') }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">To Date:</label>
+                            <input type="date" name="end_date" class="form-control" value="{{ request.form.get('end_date', '') }}">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">Sort By:</label>
+                            <select name="sort_order" class="form-select">
+                                {% if request.form.get('sort_order') == 'desc' %}
+                                    <option value="asc">Oldest First</option>
+                                    <option value="desc" selected>Newest First</option>
+                                {% else %}
+                                    <option value="asc" selected>Oldest First</option>
+                                    <option value="desc">Newest First</option>
+                                {% endif %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <button type="submit" class="btn btn-primary w-100">Filter History</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            {% if request.method == 'POST' %}
+                <div class="card shadow-sm">
+                    <div class="card-body p-0">
+                        {% if student_events %}
+                            <table class="table table-hover table-striped mb-0">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th>Event Title</th>
+                                        <th>Host Club</th>
+                                        <th>Date</th>
+                                        <th>Location</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for event in student_events %}
+                                    <tr>
+                                        <td class="fw-bold">{{ event.title }}</td>
+                                        <td>{{ event.host_club.name }}</td>
+                                        <td>{{ event.event_date }}</td>
+                                        <td>{{ event.location.building_name }} {{ event.location.room_number }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        {% else %}
+                            <div class="p-5 text-center text-muted fw-bold">No RSVP history found for these dates.</div>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
+
+        {% elif current_user.role == 'club_admin' %}
+            <h2 class="mb-4">📊 {{ current_user.club.name }} Analytics</h2>
+
+            <div class="card shadow-sm mb-4 border-success">
+                <div class="card-body">
+                    <form action="/report" method="POST" class="row g-3 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">Location:</label>
+                            <select name="location_id" class="form-select">
+                                <option value="">All Locations</option>
+                                {% for loc in locations %}
+                                    {% if request.form.get('location_id') == loc.id|string %}
+                                        <option value="{{ loc.id }}" selected>{{ loc.building_name }}</option>
+                                    {% else %}
+                                        <option value="{{ loc.id }}">{{ loc.building_name }}</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">From Date:</label>
+                            <input type="date" name="start_date" class="form-control" value="{{ request.form.get('start_date', '') }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold">To Date:</label>
+                            <input type="date" name="end_date" class="form-control" value="{{ request.form.get('end_date', '') }}">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold">Sort By:</label>
+                            <select name="sort_order" class="form-select">
+                                {% if request.form.get('sort_order') == 'desc' %}
+                                    <option value="asc">Oldest First</option>
+                                    <option value="desc" selected>Newest First</option>
+                                {% else %}
+                                    <option value="asc" selected>Oldest First</option>
+                                    <option value="desc">Newest First</option>
+                                {% endif %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <button type="submit" class="btn btn-success w-100">Generate</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            {% if request.method == 'POST' %}
+                <div class="row mb-4">
+                    <div class="col-md-4">
+                        <div class="card text-center shadow-sm h-100">
+                            <div class="card-body">
+                                <h6 class="text-muted text-uppercase fw-bold">Total RSVPs (Going)</h6>
+                                <h2 class="text-primary mt-3">{{ total_rsvps }}</h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card text-center shadow-sm h-100">
+                            <div class="card-body">
+                                <h6 class="text-muted text-uppercase fw-bold">Avg. Venue Rating</h6>
+                                <h2 class="text-success mt-3">⭐ {{ avg_venue }} <span class="fs-6 text-muted">/ 5</span></h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card text-center shadow-sm h-100">
+                            <div class="card-body">
+                                <h6 class="text-muted text-uppercase fw-bold">Avg. Content Rating</h6>
+                                <h2 class="text-info mt-3">⭐ {{ avg_content }} <span class="fs-6 text-muted">/ 5</span></h2>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                                <h4 class="mb-3">Event Details & Student Feedback</h4>
+                {% if club_events %}
+                    {% for event in club_events %}
+                        <div class="card shadow-sm mb-3">
+                            <div class="card-header bg-light fw-bold d-flex justify-content-between align-items-center">
+                                <span>{{ event.title }} ({{ event.event_date }})</span>
+                                <span class="badge bg-secondary">{{ event.feedbacks|length }} Reviews</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <span class="badge bg-primary me-2">Going: {{ event.going_count }}</span>
+                                    <span class="badge bg-warning text-dark me-2">Maybe: {{ event.maybe_count }}</span>
+                                    <span class="badge bg-dark">Total Responses: {{ event.total_responses }}</span>
+                                </div>
+
+                                {% if event.feedbacks %}
+                                    <ul class="list-group list-group-flush">
+                                        {% for fb in event.feedbacks %}
+                                            <li class="list-group-item px-0">
+                                                <strong>{{ fb.author.name }}</strong>
+                                                <span class="text-muted small ms-2">Venue: ⭐{{ fb.venue_rating }} | Content: ⭐{{ fb.content_rating }} | Recommend: {{ fb.recommend }}</span>
+                                                {% if fb.comments %}
+                                                    <p class="mb-0 mt-1 small fst-italic">"{{ fb.comments }}"</p>
+                                                {% endif %}
+                                            </li>
+                                        {% endfor %}
+                                    </ul>
+                                {% else %}
+                                    <p class="text-muted mb-0 small">No feedback submitted for this event yet.</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="p-4 text-center text-danger fw-bold bg-white rounded shadow-sm">
+                        No club events found matching these criteria.
+                    </div>
+                {% endif %}
+            {% endif %}
+
+        {% endif %}
+    </div>
+</body>
+</html>
