@@ -509,6 +509,11 @@ def report():
         student_rsvps = query.all()
         student_events = [rsvp.event for rsvp in student_rsvps]
 
+        if sort_order == "desc":
+            student_events.sort(key=lambda x: x.event_date, reverse=True)
+        else:
+            student_events.sort(key=lambda x: x.event_date)
+
     elif current_user.role == "club_admin":
         query = Event.query.filter_by(club_id=current_user.club_id)
 
@@ -531,6 +536,12 @@ def report():
             query = query.order_by(Event.event_date.asc())
 
         club_events = query.all()
+
+
+        if sort_order == "desc":
+            club_events.sort(key=lambda x: x.event_date, reverse=True)
+        else:
+            club_events.sort(key=lambda x: x.event_date)
 
         if club_events:
             event_ids = [event.id for event in club_events]
