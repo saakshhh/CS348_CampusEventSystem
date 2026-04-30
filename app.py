@@ -11,14 +11,20 @@ app = Flask(__name__)
 app.secret_key = 'super_secret_key_for_sessions'
 
 # --- DATABASE CONFIGURATION ---
-db_user = os.environ.get("DB_USER", "root")
-db_password = os.environ.get("DB_PASSWORD", "")
-db_host = os.environ.get("DB_HOST", "localhost")
-db_name = os.environ.get("DB_NAME", "campus_event_db")
+database_url = os.environ.get("DATABASE_URL")
 
-app.config['SQLALCHEMY_DATABASE_URI'] = (
-    f"mysql+pymysql://{db_user}:{db_password}@{db_host}/{db_name}"
-)
+if database_url:
+    # Railway provides 'mysql://', but SQLAlchemy requires 'mysql+pymysql://'
+    # This prevents a massive crash on the cloud server!
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url.replace("mysql://", "mysql+pymysql://")
+else:
+    # Fallback for when you test on your local Mac
+    db_user = os.environ.get("DB_USER", "root")
+    db_password = os.environ.get("DB_PASSWORD", "")
+    db_host = os.environ.get("DB_HOST", "localhost")
+    db_name = os.environ.get("DB_NAME", "campus_event_db")
+    app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql+pymysql://{db_user}:{db_password}@{db_host}/{db_name}"
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
@@ -42,7 +48,6 @@ class Club(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
     description = db.Column(db.Text)
-
     users = db.relationship('User', backref='club', lazy=True)
     events = db.relationship('Event', backref='host_club', lazy=True)
 
@@ -56,7 +61,6 @@ class User(UserMixin, db.Model):
     name = db.Column(db.String(100), nullable=False)
     role = db.Column(db.String(20), nullable=False)
     club_id = db.Column(db.Integer, db.ForeignKey('clubs.id'), nullable=True)
-
     rsvps = db.relationship('RSVP', backref='student', lazy=True)
     feedbacks = db.relationship('Feedback', backref='author', lazy=True)
 
@@ -68,13 +72,11 @@ class Location(db.Model):
     building_name = db.Column(db.String(100), nullable=False)
     room_number = db.Column(db.String(20), nullable=False)
     capacity = db.Column(db.Integer, nullable=False)
-
     events = db.relationship('Event', backref='location', lazy=True)
 
 
 class Event(db.Model):
     __tablename__ = 'events'
-
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
     description = db.Column(db.Text, nullable=False)
