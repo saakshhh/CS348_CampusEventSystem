@@ -10,15 +10,12 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 app.secret_key = 'super_secret_key_for_sessions'
 
-# --- DATABASE CONFIGURATION ---
+# database configuration
 database_url = os.environ.get("DATABASE_URL")
 
 if database_url:
-    # Railway provides 'mysql://', but SQLAlchemy requires 'mysql+pymysql://'
-    # This prevents a massive crash on the cloud server!
     app.config['SQLALCHEMY_DATABASE_URI'] = database_url.replace("mysql://", "mysql+pymysql://")
 else:
-    # Fallback for when you test on your local Mac
     db_user = os.environ.get("DB_USER", "root")
     db_password = os.environ.get("DB_PASSWORD", "")
     db_host = os.environ.get("DB_HOST", "localhost")
@@ -29,19 +26,18 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# --- FLASK LOGIN SETUP ---
+# flask login setup
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
-
+# to find a specific user
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(User, int(user_id))
 
 
-# --- DATABASE MODELS ---
-
+# database models
 class Club(db.Model):
     __tablename__ = 'clubs'
 
@@ -112,7 +108,7 @@ class Feedback(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
 
-# --- DATABASE INITIALIZATION ---
+# database initialization
 with app.app_context():
     db.create_all()
 
@@ -211,8 +207,7 @@ def logout():
     return redirect(url_for("home"))
 
 
-# --- CORE APPLICATION ROUTES ---
-
+#main app routes
 @app.route("/")
 def home():
     all_events = Event.query.all()
@@ -493,6 +488,7 @@ def report():
     if sort_order not in {"asc", "desc"}:
         sort_order = "asc"
 
+    # student report logic
     if current_user.role == "student":
         query = RSVP.query.filter_by(user_id=current_user.id).join(Event)
 
@@ -506,6 +502,7 @@ def report():
         else:
             query = query.order_by(Event.event_date.asc())
 
+        # execute the query and map the RSVPs to their actual event objects
         student_rsvps = query.all()
         student_events = [rsvp.event for rsvp in student_rsvps]
 
@@ -514,9 +511,11 @@ def report():
         else:
             student_events.sort(key=lambda x: x.event_date)
 
+    # club admin report
     elif current_user.role == "club_admin":
         query = Event.query.filter_by(club_id=current_user.club_id)
 
+        # Location filter
         if loc_id:
             try:
                 loc_id_int = int(loc_id)
@@ -525,6 +524,7 @@ def report():
                 flash("Invalid location filter.")
                 return redirect(url_for("report"))
 
+        # date filters
         if start_date:
             query = query.filter(Event.event_date >= start_date)
         if end_date:
@@ -537,7 +537,7 @@ def report():
 
         club_events = query.all()
 
-
+        # python sorting logic
         if sort_order == "desc":
             club_events.sort(key=lambda x: x.event_date, reverse=True)
         else:
@@ -546,11 +546,13 @@ def report():
         if club_events:
             event_ids = [event.id for event in club_events]
 
+            # count all RSVPs marked 'going' for this list of events
             total_rsvps = RSVP.query.filter(
                 RSVP.event_id.in_(event_ids),
                 RSVP.status == "going"
             ).count()
 
+            # ask the database to calculate the mathematical average of the star ratings
             venue_avg = db.session.query(func.avg(Feedback.venue_rating)).filter(
                 Feedback.event_id.in_(event_ids)
             ).scalar()
@@ -567,6 +569,7 @@ def report():
                 event.maybe_count = sum(1 for rsvp in event.rsvps if rsvp.status == "maybe")
                 event.total_responses = len(event.rsvps)
 
+    # pass all the processed data over to the report.html template
     return render_template(
         "report.html",
         locations=all_locations,
