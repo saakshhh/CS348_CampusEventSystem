@@ -384,50 +384,59 @@ def rsvp(event_id):
         flash("Invalid RSVP status.")
         return redirect("/")
 
+    # REQUIREMENT 1C (TRANSACTIONS & ISOLATION):
+    # flask automatically starts a transaction here. If anything fails, the except block catches it and rolls the whole thing back
     try:
-        with db.session.begin():
-            # Lock the event row so two users cannot take the last seat at the same time
-            db.session.execute(
-                text("SELECT id FROM events WHERE id = :event_id FOR UPDATE"),
-                {"event_id": event_id}
-            )
+        # PESSIMISTIC LOCKING: We execute a 'SELECT ... FOR UPDATE'
+        # if two students click RSVP at the exact same millisecond, this lock forces the
+        # second student's transaction to pause and wait until the first student is finished.
+        db.session.execute(
+            text("SELECT id FROM events WHERE id = :event_id FOR UPDATE"),
+            {"event_id": event_id}
+        )
 
-            event = db.session.get(Event, event_id)
-            if not event:
-                flash("Event not found.")
+        event = db.session.get(Event, event_id)
+        if not event:
+            flash("Event not found.")
+            return redirect("/")
+
+        # check if this student already RSVP'd before
+        existing_rsvp = RSVP.query.filter_by(
+            user_id=current_user.id,
+            event_id=event_id
+        ).first()
+
+        # capacity check
+        if status == "going" and (not existing_rsvp or existing_rsvp.status != "going"):
+            current_going = RSVP.query.filter_by(
+                event_id=event_id,
+                status="going"
+            ).count()
+
+            if current_going >= event.location.capacity:
+                flash(f"Sorry! The room capacity of {event.location.capacity} has been reached.")
                 return redirect("/")
 
-            existing_rsvp = RSVP.query.filter_by(
-                user_id=current_user.id,
-                event_id=event_id
-            ).first()
-
-            # Only check capacity if the student is newly switching into "going"
-            if status == "going" and (not existing_rsvp or existing_rsvp.status != "going"):
-                current_going = RSVP.query.filter_by(
+        # update their status or create a new RSVP record
+        if existing_rsvp:
+            existing_rsvp.status = status
+        else:
+            db.session.add(
+                RSVP(
+                    user_id=current_user.id,
                     event_id=event_id,
-                    status="going"
-                ).count()
-
-                if current_going >= event.location.capacity:
-                    flash(f"Sorry! The room capacity of {event.location.capacity} has been reached.")
-                    return redirect("/")
-
-            if existing_rsvp:
-                existing_rsvp.status = status
-            else:
-                db.session.add(
-                    RSVP(
-                        user_id=current_user.id,
-                        event_id=event_id,
-                        status=status
-                    )
+                    status=status
                 )
+            )
+
+        # manually commit the automatic transaction now that everything succeeded
+        db.session.commit()
 
         flash("RSVP updated successfully.")
         return redirect("/")
 
-    except Exception:
+    except Exception as e:
+        print(f"CRITICAL RSVP ERROR: {str(e)}")
         db.session.rollback()
         flash("Something went wrong while processing your RSVP. Please try again.")
         return redirect("/")
